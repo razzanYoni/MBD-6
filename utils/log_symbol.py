@@ -1,0 +1,2 @@
+INFO_SYMBOL = '[i]'
+CRITICAL_SYMBOL = '[!]'

@@ -1,0 +1,3 @@
+READ="r"
+WRITE="w"
+COMMIT="c"

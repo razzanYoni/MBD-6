@@ -1,3 +1,5 @@
+from action_type import READ, WRITE, COMMIT
+
 def parse_data(file):
     arr = []
     with open (file, "r") as f:
@@ -5,15 +7,13 @@ def parse_data(file):
             line = line.strip()
             if line[0] == "c":
                 action, transaction_id = line.split(",")
-                arr.append([action, transaction_id])
+                arr.append([COMMIT, transaction_id])
             else :
                 action, transaction_id, resource = line.split(",")
-                if action == "b":
-                    arr.append([action, transaction_id, resource])
-                elif action == "r":
-                    arr.append([action, transaction_id, resource])
+                if action == "r":
+                    arr.append([READ, transaction_id, resource])
                 elif action == "w":
-                    arr.append([action, transaction_id, resource])
+                    arr.append([WRITE, transaction_id, resource])
                 else:
                     raise Exception("Invalid action")
     
