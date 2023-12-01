@@ -1,12 +1,13 @@
-S = "read_locked"
-X = "write_locked"
+from utils.action_type import Action
+
+S = "S"
+X = "X"
 UNLOCKED = "unlocked"
 
 def get_needed_locks(operation):
-    if operation == "r":
-        return S
-    elif operation == "w":
-        return X
+    if operation == Action.READ:
+        return "S"
+    elif operation == Action.WRITE:
+        return "X"
     else:
         return None
-    

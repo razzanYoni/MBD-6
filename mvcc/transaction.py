@@ -12,16 +12,5 @@ class Transaction:
     self.ts = ts
     self.is_committed = False
 
-  # def start(self, tstart: int):
-  #   log(self.id, log_symbol.INFO_SYMBOL, "starting")
-  #   self.tstart = tstart
-  #   self.is_started = True
-
   def commit(self):
     self.is_committed = True
-
-  def read(self, resource: str):
-    self.read_set.add(resource)
-  
-  def write(self, resource: str):
-    self.write_set.add(resource)

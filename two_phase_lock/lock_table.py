@@ -13,15 +13,16 @@ class LockTable:
     # @param      self          The object
     # @param      transaction   The transaction
     # @param      resource      The resource
-    # @param      lock_type     The lock type
+    # @param      action        The lock type
     #
-    def add_lock(self, transaction_id, resource, lock_type):
+    def add_lock(self, transaction_id, resource, action):
+        lock_type = lock_state.get_needed_locks(action)
         if resource not in self.lock_table:
             self.lock_table[resource] = [[lock_type, transaction_id]]
         else:
             self.lock_table[resource].append([lock_type, transaction_id])
 
-        logger.log(transaction=transaction_id, symbol=log_symbol.INFO_SYMBOL, description=f"Added lock: {lock_type} on {resource} for T{transaction_id}")
+        logger.log(transaction_id, log_symbol.INFO_SYMBOL, f"Added lock: {lock_type} on {resource}")
 
     ##
     # @brief      Unlocks a resource.
@@ -32,10 +33,11 @@ class LockTable:
     #
     def unlock(self, transaction_id, resource):
         if len(self.lock_table[resource]) > 1 :
-            self.lock_table[resource].remove(transaction_id)
+            self.lock_table[resource].remove([self.get_lock_type(transaction_id, resource), transaction_id])
         else:
             del self.lock_table[resource]
-        logger.log(transaction=transaction_id, symbol=log_symbol.INFO_SYMBOL, description=f"Unlocked {resource} for T{transaction_id}")
+        logger.log(transaction_id, symbol=log_symbol.INFO_SYMBOL, description=f"Unlocked {resource} for T{transaction_id}")
+        return resource
 
     ##
     # @brief      Unlocks a transaction.
@@ -44,10 +46,19 @@ class LockTable:
     # @param      transaction  The transaction
     #
     def unlock_transaction(self, transaction_id):
-        logger.log(transaction=transaction_id, symbol=log_symbol.INFO_SYMBOL, description=f"Unlocked all resources for T{transaction_id}")
+        logger.log(transaction_id, symbol=log_symbol.INFO_SYMBOL, description=f"Unlocked all resources for T{transaction_id}")
+        resources = []
+        to_unlock = []
         for resource in self.lock_table:
-            if transaction_id in self.lock_table[resource]:
-                self.unlock(transaction_id, resource)
+            for lt, tx in self.lock_table[resource]:
+                if tx == transaction_id:
+                    # self.unlock(transaction_id, resource)
+                    to_unlock.append([transaction_id, resource])
+                    resources.append(resource)
+                    break
+        for transaction_id, resource in to_unlock:
+            self.unlock(transaction_id, resource)
+        return resources
 
     ##
     # @brief    Is unlocked
@@ -124,7 +135,7 @@ class LockTable:
     # @param      transaction  The transaction
     # @param      resource     The resource
     #
-    def upgrade_lock(self, transaction, resource):
-        self.lock_table[resource].remove([lock_state.S, transaction])
-        self.lock_table[resource].insert(0, [lock_state.X, transaction])
-        logger.log(transaction=transaction, symbol=log_symbol.INFO_SYMBOL, description=f"Upgraded lock on {resource} for {transaction}")
+    def upgrade_lock(self, transaction_id, resource):
+        self.lock_table[resource].remove([lock_state.S, transaction_id])
+        self.lock_table[resource].insert(0, [lock_state.X, transaction_id])
+        logger.log(transaction_id, symbol=log_symbol.INFO_SYMBOL, description=f"Upgraded lock on {resource} for {transaction_id}")

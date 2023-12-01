@@ -34,7 +34,8 @@ class ScheduleItem:
 def output_schedule(schedule: list[ScheduleItem], file: str):
     with open(file, "w") as f:
         for item in schedule:
-            if item.action == Action.COMMIT or item.action == Action.ABORT:
+            if item.action == Action.COMMIT or item.action == Action.ABORT or item.action == Action.VALIDATE:
                 f.write(f"{item.action.value},{item.transaction_id}\n")
             else:
                 f.write(f"{item.action.value},{item.transaction_id},{item.resource}\n")
+

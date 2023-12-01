@@ -79,5 +79,3 @@ class MVCC:
     for resource in self.database:
       data = self.database[resource]
       print(f"{resource}: {data.versions}")
-
-      
