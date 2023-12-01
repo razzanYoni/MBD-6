@@ -8,8 +8,8 @@ from .transaction import Transaction
 class OCC:
   def __init__(self, schedule: list[ScheduleItem]) -> None:
     self.schedule = schedule
+    self.out: list[ScheduleItem] = []
     self.transactions: dict[str, Transaction] = {}
-    self.lock_table = {}
     self._init_transactions()
 
   def _init_transactions(self) -> None:
@@ -31,12 +31,15 @@ class OCC:
         raise Exception(f"Invalid schedule, transaction {transaction.id} has been finished")
       
       if item.action == Action.READ:
+        self.out.append(item)
         log_action(item)
         transaction.read(item.resource)
       elif item.action == Action.WRITE:
+        self.out.append(ScheduleItem(Action.WRITE_LOCAL, item.transaction_id, item.resource))
         log(item.transaction_id, log_symbol.INFO_SYMBOL, f"writing local {item.resource}")
         transaction.write(item.resource)
       else:
+        self.out.append(ScheduleItem(Action.VALIDATE, item.transaction_id))
         log(transaction.id, log_symbol.INFO_SYMBOL, "validating")
         is_valid = True
         for t_other in self.transactions.values():
@@ -60,15 +63,17 @@ class OCC:
               self.schedule.pop(j)
             j -= 1
           transaction.reset()
+          self.out.append(ScheduleItem(Action.ABORT, transaction.id))
           self.schedule.extend(transaction.schedules)
           break
 
         if is_valid:
           for resource in transaction.write_set:
+            self.out.append(ScheduleItem(Action.WRITE, transaction.id, resource))
             log(transaction.id, log_symbol.INFO_SYMBOL, f"writing {resource}")
+          self.out.append(ScheduleItem(Action.COMMIT, transaction.id))
           log_action(item)
           transaction.commit(i)
 
-            
       i += 1
       

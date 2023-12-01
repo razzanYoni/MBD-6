@@ -8,6 +8,8 @@ class ScheduleParser:
         with open(file, "r") as f:
             for line in f:
                 line = line.strip()
+                if not line:
+                    continue
                 self.schedule.append(self._parse_row(line))
 
     def _parse_row(self, line: str):
@@ -28,3 +30,11 @@ class ScheduleItem:
         self.action = action
         self.transaction_id = transaction_id
         self.resource = resource
+
+def output_schedule(schedule: list[ScheduleItem], file: str):
+    with open(file, "w") as f:
+        for item in schedule:
+            if item.action == Action.COMMIT or item.action == Action.ABORT:
+                f.write(f"{item.action.value},{item.transaction_id}\n")
+            else:
+                f.write(f"{item.action.value},{item.transaction_id},{item.resource}\n")
