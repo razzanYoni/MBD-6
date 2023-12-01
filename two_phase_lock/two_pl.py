@@ -206,7 +206,8 @@ class TwoPL:
             self.run_operation(operation)
         
         for transaction_id in self.abort_transactions:
+            self.abort_transactions.remove(transaction_id)
             for operation in self.schedule:
                 if operation.transaction_id == transaction_id:
-                    self.run_operation(operation, True)
+                    self.run_operation(operation)
                 
