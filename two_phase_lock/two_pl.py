@@ -1,18 +1,17 @@
 import utils.logger as logger
 import utils.log_symbol as log_symbol
-from lock_table import LockTable
+from two_phase_lock.lock_table import LockTable
 from utils.action_type import READ, WRITE, COMMIT
-import queue
 
 def twoPL(schedule):
     def read(transaction, resource):
-        logger.log(symbol=log_symbol.INFO_SYMBOL, description=f"Transaction {transaction} is reading {resource}")
+        logger.Logger().log(transaction=transaction, symbol=log_symbol.INFO_SYMBOL, description=f"Transaction {transaction} is reading {resource}")
 
     def write(transaction, resource):
-        logger.log(symbol=log_symbol.INFO_SYMBOL, description=f"Transaction {transaction} is writing {resource}")
+        logger.Logger().log(transaction=transaction, symbol=log_symbol.INFO_SYMBOL, description=f"Transaction {transaction} is writing {resource}")
 
     def commit(transaction):
-        logger.log(symbol=log_symbol.INFO_SYMBOL, description=f"Transaction {transaction} is committing")
+        logger.Logger().log(transaction=transaction, symbol=log_symbol.INFO_SYMBOL, description=f"Transaction {transaction} is committing")
 
     transactions_queue = []
     lock_table = LockTable()
@@ -26,13 +25,26 @@ def twoPL(schedule):
             action, transaction_id, resource = operation
             if action == READ:
                 if lock_table.get_lock_type(transaction_id, resource) == None:
-                    pass
+                    if lock_table.is_unlocked(resource):
+                        lock_table.add_lock(transaction_id, resource, READ)
+                        read(transaction_id, resource)
                 else:
                     read(transaction_id, resource)
             else: # operation == WRITE:
                 if lock_table.get_lock_type(transaction_id, resource) == None:
-                    pass
-                elif lock_table.get_lock_type(transaction_id, resource) == WRITE:
-                    write(transaction_id, resource)
+                    if lock_table.is_unlocked(resource):
+                        lock_table.add_lock(transaction_id, resource, WRITE)
+                        write(transaction_id, resource)
+                    else :
+                        lock_table.add_lock(transaction_id, resource, WRITE)
+                        transactions_queue.append([transaction_id, resource])
                 else:
-                    pass
+                    if lock_table.get_lock_type(transaction_id, resource) == WRITE:
+                        write(transaction_id, resource)
+                    else:
+                        transactions_queue.append([transaction_id, resource])
+
+    while len(transactions_queue) > 0:
+        pass
+    
+    logger.Logger().__str__()

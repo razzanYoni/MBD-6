@@ -1,4 +1,4 @@
-from action_type import READ, WRITE, COMMIT
+from utils.action_type import READ, WRITE, COMMIT
 
 def parse_data(file):
     arr = []
