@@ -1,27 +1,21 @@
-class SingletonMeta(type):
+from . import log_symbol
 
-    _instances = {}
+from .action_type import Action
+from .schedule_parser import ScheduleItem
 
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            instance = super().__call__(*args, **kwargs)
-            cls._instances[cls] = instance
-        return cls._instances[cls]
+action_str_map = {
+    Action.COMMIT: 'committing',
+    Action.READ: 'reading',
+    Action.WRITE: 'writing',
+    Action.VALIDATE: 'validating'
+}
 
-class Logger(metaclass=SingletonMeta):
-    def __init__(self):
-        self.queue = []
-        self.rollback_queue = []
+def log(transaction_id, symbol, description):
+        print(f"{symbol} [T{transaction_id}] {description}")
 
-    def log(self, transaction, symbol, description):
-        self.queue.append([transaction, symbol, description])
+def log_action(operation: ScheduleItem):
+    log(operation.transaction_id, log_symbol.ACTION_SYMBOL, f"{action_str_map[operation.action]} {operation.resource if operation.resource else ''}")
 
-    def rollback_log(self, transaction) :
-        for log in self.queue:
-            if log[0] == transaction:
-                self.rollback_queue.append(log)
-                self.queue.remove(log)
-
-    def __str__(self) -> str:
-        for tx, symbol, description in self.queue:
-            print(description)
+def log_abort(transaction_id: str):
+    log(transaction_id, log_symbol.)
+    pass
