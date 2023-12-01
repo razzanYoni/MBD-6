@@ -13,17 +13,17 @@ class ScheduleParser:
                 self.schedule.append(self._parse_row(line))
 
     def _parse_row(self, line: str):
-        if line[0] == "c":
+        if line[0] == Action.COMMIT.value:
             action, transaction_id = line.split(",")
             return ScheduleItem(Action.COMMIT, transaction_id)
         else :
             action, transaction_id, resource = line.split(",")
-            if action == "r":
+            if action == Action.READ.value:
                 return ScheduleItem(Action.READ, transaction_id, resource)
-            elif action == "w":
+            elif action == Action.WRITE.value:
                 return ScheduleItem(Action.WRITE, transaction_id, resource)
             else:
-                raise Exception("Invalid action")
+                raise Exception(f"Invalid action, {action}")
             
 class ScheduleItem:
     def __init__(self, action: Action, transaction_id: str, resource: str = None) -> None:

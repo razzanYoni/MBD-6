@@ -2,9 +2,9 @@ from enum import Enum
 
 
 class Action(Enum):
-  READ = "r"
-  WRITE = "w"
-  COMMIT = "c"
-  ABORT = "a"
-  WRITE_LOCAL = "wl"
-  VALIDATE = "v"
+  READ = "R"
+  WRITE = "W"
+  COMMIT = "C"
+  ABORT = "A"
+  WRITE_LOCAL = "WL"
+  VALIDATE = "V"

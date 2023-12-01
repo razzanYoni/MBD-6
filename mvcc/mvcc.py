@@ -74,4 +74,10 @@ class MVCC:
         log_action(item)
         transaction.commit()
       i += 1
+
+    print("Final data timestamp and version:")
+    for resource in self.database:
+      data = self.database[resource]
+      print(f"{resource}: {data.versions}")
+
       
