@@ -1,5 +1,3 @@
-from typing import override
-
 from utils.action_type import Action
 
 
@@ -24,18 +22,7 @@ class ScheduleParser:
                 return ScheduleItem(Action.WRITE, transaction_id, resource)
             else:
                 raise Exception("Invalid action")
-
-class ScheduleParserValidate(ScheduleParser):
-    def __init__(self, file: str) -> None:
-        super().__init__(file)
-
-    @override
-    def _parse_row(self, line):
-        if line[0] == "v":
-            _, transaction_id = line.split(",")
-            return ScheduleItem(Action.VALIDATE, transaction_id)
-        return super()._parse_row(line)
-
+            
 class ScheduleItem:
     def __init__(self, action: Action, transaction_id: str, resource: str = None) -> None:
         self.action = action
