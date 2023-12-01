@@ -43,17 +43,16 @@ class OCC:
         log(transaction.id, log_symbol.INFO_SYMBOL, "validating")
         is_valid = True
         for t_other in self.transactions.values():
-          if t_other.id == transaction.id or not t_other.is_started or t_other.tstart > transaction.tstart:
+          if t_other.id == transaction.id or not t_other.is_started or not t_other.is_finished:
             continue
-          if t_other.is_finished:
-            # finishTS(Ti) < startTS(Tj)
-            if t_other.tfinish < transaction.tstart:
-              continue
+          # finishTS(Ti) < startTS(Tj)
+          if t_other.tfinish < transaction.tstart:
+            continue
 
-            # in this case, startTS(Tj) < finishTS(Ti) < validationTS(Tj) is True
-            # check set of data
-            if len(transaction.read_set.intersection(t_other.write_set)) == 0:
-              continue
+          # in this case, startTS(Tj) < finishTS(Ti) < validationTS(Tj) is True
+          # check set of data
+          if len(transaction.read_set.intersection(t_other.write_set)) == 0:
+            continue
           # abort
           is_valid = False
           log_abort(transaction.id)
