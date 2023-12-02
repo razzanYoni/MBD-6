@@ -1,6 +1,6 @@
 from mvcc.mvcc import MVCC
 import utils.schedule_parser as schedule_parser
-from two_phase_lock.two_pl import TwoPL
+from two_pl.two_pl import TwoPL
 from occ.occ import OCC
 
 if __name__ == "__main__":
