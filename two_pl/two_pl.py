@@ -3,52 +3,17 @@ import utils.logger as logger
 from utils.action_type import Action
 from utils.schedule_parser import ScheduleItem
 from .lock_table import LockTable, LockType
-from .transaction import Transaction
+from .transaction import TransactionManager
 
 
 # rigorous two phase locking
 class TwoPL:
     def __init__(self, schedule: list[ScheduleItem]):
         self.schedule: list[ScheduleItem] = schedule
-        self.transactions: list[Transaction] = []
+        self.transaction_manager: TransactionManager = TransactionManager()
         self.lock_table: LockTable = LockTable()
         self.final_schedule: list[ScheduleItem] = []
 
-    def get_t_by_id(self, t_id: str) -> Transaction | None:
-        for t in self.transactions:
-            if t.id == t_id:
-                return t
-        return None
-
-    def get_t_idx_by_id(self, t_id: str) -> int:
-        for i in range(0, len(self.transactions)):
-            t = self.transactions[i]
-            if t.id == t_id:
-                return i
-        return -1
-
-    def is_t_older(self, t_id: str, other_t_id: str):
-        id1 = -1
-        id2 = -1
-
-        for i in range(0, len(self.transactions)):
-            t = self.transactions[i]
-            if t.id == t_id:
-                id1 = i
-            if t.id == other_t_id:
-                id2 = i
-
-            if id1 != -1 and id2 != -1:
-                break
-        return id1 < id2
-
-    def is_t_abort(self, t_id: str):
-        t = self.get_t_by_id(t_id)
-        return t.is_abort()
-
-    def is_t_waiting(self, t_id: str):
-        t = self.get_t_by_id(t_id)
-        return t.is_waiting()
 
     def add_operation_to_t_queue(self, schedule_item: ScheduleItem):
         other_t_id = None
@@ -59,16 +24,18 @@ class TwoPL:
         # is other t id has the lock too
         if other_t_id is not None:
             # is transaction younger and waiting (wait-die scheme)
-            if not self.is_t_older(schedule_item.transaction_id, other_t_id) and self.is_t_waiting(other_t_id):
+            if not self.transaction_manager.is_t_older(schedule_item.transaction_id, other_t_id) \
+                    and \
+                    self.transaction_manager.is_t_waiting(other_t_id):
                 # abort transaction
-                t_idx = self.get_t_idx_by_id(schedule_item.transaction_id)
-                self.transactions[t_idx].abort = True
-                self.transactions[t_idx].queue = []
+                t = self.transaction_manager.get_t_by_id(schedule_item.transaction_id)
+                t.abort = True
+                t.queue = []
 
-                logger.log(self.transactions[t_idx].id, log_symbol.INFO_SYMBOL,
-                           f'T{self.transactions[t_idx].id} is trying to get lock, but T{other_t_id} is waiting for the lock from T{self.transactions[t_idx].id}')
-                logger.log(self.transactions[t_idx].id, log_symbol.CRITICAL_SYMBOL,
-                           f'Deadlock, abort T{self.transactions[t_idx].id}')
+                logger.log(t.id, log_symbol.INFO_SYMBOL,
+                           f'T{t.id} is trying to get lock, but T{other_t_id} is waiting for the lock from T{t.id}')
+                logger.log(t.id, log_symbol.CRITICAL_SYMBOL,
+                           f'Deadlock, abort T{t.id}')
 
                 unlocked_resource, unlock_schedule_items = self.lock_table.unlock_transaction(
                     schedule_item.transaction_id)
@@ -86,20 +53,20 @@ class TwoPL:
                 self.run_waiting_queue(unlocked_resource)
             else:
                 # older or waiting
-                t_idx = self.get_t_idx_by_id(schedule_item.transaction_id)
-                self.transactions[t_idx].queue.append(schedule_item)
+                t = self.transaction_manager.get_t_by_id(schedule_item.transaction_id)
+                t.add_schedule(schedule_item)
                 logger.log_add_to_queue(schedule_item)
         else:
             # not younger
-            t_idx = self.get_t_idx_by_id(schedule_item.transaction_id)
-            self.transactions[t_idx].queue.append(schedule_item)
+            t = self.transaction_manager.get_t_by_id(schedule_item.transaction_id)
+            t.add_schedule(schedule_item)
             logger.log_add_to_queue(schedule_item)
 
     def read(self, schedule_item: ScheduleItem, queue_action: bool = False) -> bool:
         # is t has lock on resource
         if self.lock_table.is_t_has_lock(schedule_item.transaction_id, schedule_item.resource):
             # is t still waiting
-            if self.is_t_waiting(schedule_item.transaction_id):
+            if self.transaction_manager.is_t_waiting(schedule_item.transaction_id):
                 # action from queue
                 if queue_action:
                     self.final_schedule.append(schedule_item)
@@ -112,7 +79,7 @@ class TwoPL:
                 logger.log_action(schedule_item)
         else:
             # is t still waiting
-            if self.is_t_waiting(schedule_item.transaction_id):
+            if self.transaction_manager.is_t_waiting(schedule_item.transaction_id):
                 if queue_action:
                     # other transaction has not the key
                     if not self.lock_table.is_t_has_X_lock(schedule_item.transaction_id, schedule_item.resource):
@@ -135,7 +102,7 @@ class TwoPL:
         # is t has X lock on resource
         if self.lock_table.is_t_has_X_lock(schedule_item.transaction_id, schedule_item.resource):
             # is t still waiting
-            if self.is_t_waiting(schedule_item.transaction_id):
+            if self.transaction_manager.is_t_waiting(schedule_item.transaction_id):
                 # action from queue
                 if queue_action:
                     self.final_schedule.append(schedule_item)
@@ -148,7 +115,7 @@ class TwoPL:
                 logger.log_action(schedule_item)
         else:
             # is t still waiting
-            if self.is_t_waiting(schedule_item.transaction_id):
+            if self.transaction_manager.is_t_waiting(schedule_item.transaction_id):
                 # action from queue
                 if queue_action:
                     if not self.lock_table.is_other_t_has_key(schedule_item.transaction_id, schedule_item.resource):
@@ -177,7 +144,7 @@ class TwoPL:
 
     def commit(self, schedule_item: ScheduleItem, queue_action: bool = False) -> bool:
         # is t still waiting
-        if self.is_t_waiting(schedule_item.transaction_id):
+        if self.transaction_manager.is_t_waiting(schedule_item.transaction_id):
             # action from queue
             if queue_action:
                 logger.log_action(schedule_item)
@@ -198,12 +165,12 @@ class TwoPL:
             self.final_schedule += unlock_schedule_items
             self.final_schedule.append(schedule_item)
 
-            t = self.get_t_by_id(schedule_item.transaction_id)
+            t = self.transaction_manager.get_t_by_id(schedule_item.transaction_id)
             t.queue = []
             self.run_waiting_queue(unlocked_resource)
 
     def run_op(self, schedule_item: ScheduleItem, queue_action: bool = False) -> bool:
-        if self.is_t_abort(schedule_item.transaction_id):
+        if self.transaction_manager.is_t_abort(schedule_item.transaction_id):
             return False
 
         if schedule_item.action == Action.READ:
@@ -215,8 +182,7 @@ class TwoPL:
 
     def run_waiting_queue(self, unlocked_resource: list[str]):
         # check is there any operation can be done
-        for i in range(0, len(self.transactions)):
-            t = self.transactions[i]
+        for i, t in enumerate(self.transaction_manager.transactions):
             if not t.is_waiting():
                 continue
             do_next_op = False
@@ -233,21 +199,21 @@ class TwoPL:
                 if not do_next_op: break
 
             for _ in range(to_pop):
-                self.transactions[i].queue.pop(0)
+                t.queue.pop(0)
 
     def run(self):
         for schedule_item in self.schedule:
             # add to array of transaction
-            if not self.get_t_by_id(schedule_item.transaction_id):
-                self.transactions.append(Transaction(schedule_item.transaction_id))
+            if not self.transaction_manager.get_t_by_id(schedule_item.transaction_id):
+                self.transaction_manager.add_transaction(schedule_item.transaction_id)
 
             # add schedule item to transaction
-            t_idx = self.get_t_idx_by_id(schedule_item.transaction_id)
-            self.transactions[t_idx].schedules.append(schedule_item)
+            t = self.transaction_manager.get_t_by_id(schedule_item.transaction_id)
+            t.add_schedule(schedule_item)
 
             self.run_op(schedule_item)
 
-        for t in self.transactions:
+        for t in self.transaction_manager.transactions:
             if t.is_abort():
                 t.abort = False
                 for schedule_item in t.schedules:
