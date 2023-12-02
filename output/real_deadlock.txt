@@ -1,0 +1,15 @@
+S,1,y
+R,1,y
+R,2,x
+X,1,x
+W,1,x
+UL,1,y
+UL,1,x
+C,1
+S,2,x
+R,2,x
+X,2,y
+W,2,y
+UL,2,y
+UL,2,x
+C,2

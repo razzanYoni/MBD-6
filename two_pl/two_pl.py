@@ -6,6 +6,7 @@ from .lock_table import LockTable, LockType
 from .transaction import Transaction
 
 
+# rigorous two phase locking
 class TwoPL:
     def __init__(self, schedule: list[ScheduleItem]):
         self.schedule: list[ScheduleItem] = schedule
@@ -58,7 +59,7 @@ class TwoPL:
         # is other t id has the lock too
         if other_t_id is not None:
             other_t_idx = self.get_t_idx_by_id(other_t_id)
-            # is younger and has queue
+            # is younger and has queue (wait-die scheme)
             if not self.is_t_older(schedule_item.transaction_id, other_t_id) and self.transactions[
                 other_t_idx].is_has_queue():
                 # abort transaction
@@ -67,7 +68,7 @@ class TwoPL:
                 self.transactions[t_idx].queue = []
 
                 logger.log(self.transactions[t_idx].id, log_symbol.INFO_SYMBOL,
-                           f'T{self.transactions[t_idx].id} trying to get lock, but T{other_t_id} is waiting for the lock from T{self.transactions[t_idx].id}')
+                           f'T{self.transactions[t_idx].id} is trying to get lock, but T{other_t_id} is waiting for the lock from T{self.transactions[t_idx].id}')
                 logger.log(self.transactions[t_idx].id, log_symbol.CRITICAL_SYMBOL,
                            f'Deadlock, abort T{self.transactions[t_idx].id}')
 
@@ -181,30 +182,28 @@ class TwoPL:
         if self.is_t_has_queue(schedule_item.transaction_id):
             # action from queue
             if queue_action:
-                self.final_schedule.append(schedule_item)
                 logger.log_action(schedule_item)
                 unlocked_resource, unlock_schedule_items = self.lock_table.unlock_transaction(
                     schedule_item.transaction_id)
+                self.final_schedule += unlock_schedule_items
+                self.final_schedule.append(schedule_item)
                 return True
             # add t to queue
             else:
                 self.add_operation_to_t_queue(schedule_item)
         else:
             # t isn't in queue
-            self.final_schedule.append(schedule_item)
             logger.log_action(schedule_item)
+
+            # unlock all resource
             unlocked_resource, unlock_schedule_items = self.lock_table.unlock_transaction(schedule_item.transaction_id)
             self.final_schedule += unlock_schedule_items
+            self.final_schedule.append(schedule_item)
+
             t = self.get_t_by_id(schedule_item.transaction_id)
             t.queue = []
             self.run_queue(unlocked_resource)
-    def run_op(self, schedule_item: ScheduleItem, queue_action: bool = False, final: bool = False) -> bool:
-        if not self.get_t_by_id(schedule_item.transaction_id):
-            self.transactions.append(Transaction(schedule_item.transaction_id))
-        if not queue_action and not final:
-            t_idx = self.get_t_idx_by_id(schedule_item.transaction_id)
-            self.transactions[t_idx].schedules.append(schedule_item)
-
+    def run_op(self, schedule_item: ScheduleItem, queue_action: bool = False) -> bool:
         if self.is_t_abort(schedule_item.transaction_id):
             return False
 
@@ -216,7 +215,6 @@ class TwoPL:
             return self.commit(schedule_item, queue_action)
 
     def run_queue(self, unlocked_resource: list[str]):
-        # if not queue_action:
         # check is there any operation can be done
         for i in range(0, len(self.transactions)):
             t = self.transactions[i]
@@ -240,11 +238,18 @@ class TwoPL:
 
     def run(self):
         for schedule_item in self.schedule:
+            # add to array of transaction
+            if not self.get_t_by_id(schedule_item.transaction_id):
+                self.transactions.append(Transaction(schedule_item.transaction_id))
+
+            # add schedule item to transaction
+            t_idx = self.get_t_idx_by_id(schedule_item.transaction_id)
+            self.transactions[t_idx].schedules.append(schedule_item)
+
             self.run_op(schedule_item)
 
         for t in self.transactions:
             if t.is_abort():
-                self.final_schedule += t.schedules
                 t.abort = False
                 for schedule_item in t.schedules:
-                    self.run_op(schedule_item, final=True)
+                    self.run_op(schedule_item)

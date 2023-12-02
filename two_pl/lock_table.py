@@ -6,6 +6,7 @@ import utils.logger as logger
 from utils.schedule_parser import ScheduleItem
 from utils.action_type import Action
 
+
 class LockType(Enum):
     X = "EXCLUSIVE"
     S = "SHARED"
