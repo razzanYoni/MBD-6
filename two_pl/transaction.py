@@ -11,5 +11,5 @@ class Transaction:
     def is_abort(self):
         return self.abort
 
-    def is_has_queue(self):
+    def is_waiting(self):
         return len(self.queue) != 0
