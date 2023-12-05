@@ -28,15 +28,20 @@ class LockTable:
 
     def add_lock(self, t_id: str, resource: str, lock_type: LockType):
         lock_item = LockItem(t_id, resource, lock_type)
+
+        if lock_type == LockType.S:
+            logger.log(t_id, log_symbol.INFO_SYMBOL, f"Added lock: {lock_type} on {resource}")
+        else:
+            if self.is_t_has_S_lock(t_id, resource):
+                return self.upgrade_lock(t_id, resource)
+            else:
+                logger.log(t_id, log_symbol.INFO_SYMBOL, f"Added lock: {lock_type} on {resource}")
+
         if resource not in self.lock_per_resource:
             self.lock_per_resource[resource]: list[LockItem] = [lock_item]
         else:
             self.lock_per_resource[resource].append(lock_item)
-
-        logger.log(t_id, log_symbol.INFO_SYMBOL, f"Added lock: {lock_type} on {resource}")
-        return ScheduleItem(Action.SHARED if lock_type == LockType.S else Action.EXCLUSIVE,
-                            t_id,
-                            resource)
+        return ScheduleItem(Action.SHARED if lock_type == LockType.S else Action.EXCLUSIVE, t_id, resource)
 
     def upgrade_lock(self, t_id: str, resource: str):
         for lock_item in self.lock_per_resource[resource]:
@@ -47,14 +52,10 @@ class LockTable:
         logger.log(t_id, log_symbol.INFO_SYMBOL, f"Upgrade lock on {resource}")
         return ScheduleItem(Action.UPGRADE_LOCK, t_id, resource)
 
-    def unlock(self, t_id: str, resource: str):
-        for lock_item in self.lock_per_resource[resource]:
-            if lock_item.t_id == t_id:
-                self.lock_per_resource[resource].remove(lock_item)
-                break
-
-        logger.log(t_id, log_symbol.INFO_SYMBOL, f"Unlocked {resource}")
-        return ScheduleItem(Action.UNLOCK, t_id, resource)
+    def unlock(self, lock_item: LockItem):
+        self.lock_per_resource[lock_item.resource].remove(lock_item)
+        logger.log(lock_item.t_id, log_symbol.INFO_SYMBOL, f"Unlocked {lock_item.resource}")
+        return ScheduleItem(Action.UNLOCK, lock_item.t_id, lock_item.resource)
 
     def unlock_transaction(self, t_id: str):
         logger.log(t_id, log_symbol.INFO_SYMBOL, f"Unlocked all resources")
@@ -63,7 +64,7 @@ class LockTable:
         for resource in self.lock_per_resource:
             for lock_item in self.lock_per_resource[resource]:
                 if lock_item.t_id == t_id:
-                    unlock_schedule_items.append(self.unlock(lock_item.t_id, lock_item.resource))
+                    unlock_schedule_items.append(self.unlock(lock_item))
                     resources.append(lock_item.resource)
                     break
 

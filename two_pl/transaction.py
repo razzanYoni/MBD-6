@@ -1,4 +1,11 @@
 from utils import ScheduleItem
+from enum import Enum
+
+
+class TransactionStatus(Enum):
+    RUNNING = 1
+    WAITING = 2
+    ABORTED = 3
 
 
 class Transaction:
@@ -6,16 +13,25 @@ class Transaction:
         self.id = t_id
         self.schedules: list[ScheduleItem] = []
         self.queue: list[ScheduleItem] = []
-        self.abort = False
+        self.status = TransactionStatus.RUNNING
 
     def is_abort(self):
-        return self.abort
+        return self.status == TransactionStatus.ABORTED
 
     def is_waiting(self):
-        return len(self.queue) != 0
+        return self.status == TransactionStatus.WAITING
+
+    def is_running(self):
+        return self.status == TransactionStatus.RUNNING
 
     def add_schedule(self, schedule: ScheduleItem):
         self.schedules.append(schedule)
+
+    def add_queue(self, schedule: ScheduleItem):
+        self.queue.append(schedule)
+
+    def is_has_queue(self):
+        return len(self.queue) > 0
 
 
 class TransactionManager:
@@ -50,3 +66,9 @@ class TransactionManager:
         if t is None:
             return False
         return t.is_waiting()
+
+    def is_any_t_waiting(self) -> bool:
+        for t in self.transactions:
+            if t.is_waiting():
+                return True
+        return False
